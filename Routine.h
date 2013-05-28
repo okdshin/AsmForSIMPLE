@@ -8,7 +8,23 @@
 
 namespace asm_for_simple
 {
-auto SplitString(
+inline auto TrimStringLeft(std::string s) -> std::string {
+	s.erase(s.begin(), std::find_if(s.begin(), s.end(), 
+		std::not1(std::ptr_fun<int, int>(std::isspace))));
+	return s;
+}
+
+inline auto TrimStringRight(std::string s) -> std::string {
+	s.erase(std::find_if(s.rbegin(), s.rend(), 
+	std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+	return s;
+}
+
+inline auto TrimString(const std::string &s) -> std::string {
+        return TrimStringLeft(TrimStringRight(s));
+}
+
+inline auto SplitAndTrimString(
 		const std::string& src, const std::string& delim) -> std::vector<std::string> {
 	std::string::size_type start = 0;
 	std::vector<std::string> dst_vect;
@@ -18,7 +34,8 @@ auto SplitString(
 			dst_vect.push_back(src.substr(start, end - start));
 		}
 		else {
-			dst_vect.push_back(src.substr(start, src.length() - start));	
+			dst_vect.push_back(
+				TrimString(src.substr(start, src.length() - start)));	
 			break;
 		}
 		start = end + delim.length();
@@ -41,7 +58,7 @@ auto ToString(T val) -> std::string {
 }
 
 //TODO minus value
-auto ToBitString(int num, unsigned int bit_length) -> std::string {
+inline auto ToBitString(int num, unsigned int bit_length) -> std::string {
 	std::string result;
 	while(num){
 		result.append(ToString<int>(num%2));

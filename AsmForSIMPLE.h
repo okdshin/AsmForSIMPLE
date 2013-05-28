@@ -7,7 +7,9 @@
 #include <string>
 #include <map>
 #include <algorithm>
+#include <exception>
 #include "Routine.h"
+#include "Exception.h"
 
 namespace asm_for_simple
 {
@@ -17,13 +19,28 @@ public:
 	using Ptr = std::shared_ptr<Command>;
 
 	Command(){}
+
+	auto CheckCommand(const std::vector<std::string>& tokens) -> void {
+		this->DoCheckCommand(tokens);	
+	}
+
 	auto Convert(int x, int y, int z) -> std::string {
 		return this->DoConvert(x, y, z);	
 	}
 private:
+	virtual auto DoCheckCommand(const std::vector<std::string>& tokens) -> void = 0;
 	virtual auto DoConvert(int x, int y, int z) -> std::string = 0;
 
 };
+
+auto CheckArgumentNum(unsigned int size, unsigned int need) -> void {
+	if(size > need){
+		throw TooMutchArgumentsException(size, need);
+	}
+	if(size < need){
+		throw TooFewArgumentsException(size, need);	
+	}
+}
 
 class OpCommand : public Command {
 public:
@@ -32,6 +49,12 @@ public:
 	}
 private:
 	OpCommand(const std::string& op3) : Command(), op3(op3){}
+	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+		unsigned int need = 3;
+		if(tokens.at(0) == "OUT"){ need = 2; }
+		if(tokens.at(0) == "HLT"){ need = 1; }
+		CheckArgumentNum(tokens.size(), need);
+	}
 	virtual auto DoConvert(int x, int y, int z) -> std::string {
 		return "11"+ToBitString(y, 3)+ToBitString(x, 3)+op3+"0000";
 	}
@@ -46,6 +69,9 @@ public:
 	}
 private:
 	ShiftCommand(const std::string& op3) : Command(), op3(op3){}
+	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+		CheckArgumentNum(tokens.size()-1, 2);
+	}
 	virtual auto DoConvert(int x, int y, int z) -> std::string {
 		return "11000"+ToBitString(x, 3)+op3+ToBitString(y, 4);
 	}
@@ -60,6 +86,9 @@ public:
 	}
 private:
 	LoadStoreCommand(const std::string& op1) : Command(), op1(op1){}
+	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+		CheckArgumentNum(tokens.size()-1, 3);
+	}
 	virtual auto DoConvert(int x, int y, int z) -> std::string {
 		return op1+ToBitString(x, 3)+ToBitString(z, 3)+ToBitString(y, 8);
 	}
@@ -74,6 +103,9 @@ public:
 	}
 private:
 	LoadImAndJumpCommand(const std::string& op2) : Command(), op2(op2){}
+	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+		CheckArgumentNum(tokens.size()-1, 2);
+	}
 	virtual auto DoConvert(int x, int y, int z) -> std::string {
 		return "10"+op2+ToBitString(x, 3)+ToBitString(y, 8);
 	}
@@ -88,6 +120,9 @@ public:
 	}
 private:
 	BranchCommand(const std::string& cond) : Command(), cond(cond){}
+	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+		CheckArgumentNum(tokens.size()-1, 1);
+	}
 	virtual auto DoConvert(int x, int y, int z) -> std::string {
 		return "10111"+cond+ToBitString(y, 8);
 	}
@@ -139,17 +174,26 @@ public:
 				}
 				break;
 			}
-			const auto bin_line = this->CompileLine(line);
-			std::cout << bin_line << std::endl;
-			binary_lines_.push_back(bin_line);
+			try{
+				const auto bin_line = this->CompileLine(line);
+				std::cout << bin_line << std::endl;
+				binary_lines_.push_back(bin_line);
+			}
+			catch(const std::exception& e){
+				std::cout << "ERROR:" << e.what() << std::endl;
+			}
 		}
 	}
 
 
 	auto CompileLine(const std::string& asm_code) -> std::string {
-		auto tokens = SplitString(asm_code, " ");
-		assert(tokens.size() <= 4);
+		auto tokens = SplitAndTrimString(asm_code, " ");
+		if(tokens.at(0) == ""){ return ""; }
 		const unsigned int append_token_num = 4 - tokens.size();
+		if(command_map_.find(tokens.at(0)) == command_map_.end()){
+			throw InvalidCommandKeywordException(tokens.at(0));	
+		}
+		command_map_[tokens.at(0)]->CheckCommand(tokens);
 		for(unsigned int i=0; i < append_token_num; ++i){
 			tokens.push_back("0");
 		}
@@ -160,10 +204,17 @@ public:
 	}
 
 	auto CompileAsmFile(std::ifstream& ifs, std::ofstream& ofs) -> void {
+		unsigned int line_count = 0;
 		while(ifs){
+			++line_count;
 			std::string line;
 			std::getline(ifs, line);
-			ofs << this->CompileLine(line) << std::endl;
+			try{
+				ofs << this->CompileLine(line) << std::endl;
+			}
+			catch(const std::exception& e){
+				std::cout << line_count << ":Error:" << e.what() << std::endl;
+			}
 		}
 	}
 private:
