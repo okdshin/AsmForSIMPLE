@@ -24,12 +24,18 @@ public:
 		this->DoCheckCommand(tokens);	
 	}
 
-	auto Convert(int x, int y, int z) -> std::string {
+	auto Convert(
+			const std::string& x, 
+			const std::string& y, 
+			const std::string& z) -> std::string {
 		return this->DoConvert(x, y, z);	
 	}
 private:
 	virtual auto DoCheckCommand(const std::vector<std::string>& tokens) -> void = 0;
-	virtual auto DoConvert(int x, int y, int z) -> std::string = 0;
+	virtual auto DoConvert(
+			const std::string& x, 
+			const std::string& y, 
+			const std::string& z) -> std::string = 0;
 
 };
 
@@ -49,14 +55,17 @@ public:
 	}
 private:
 	OpCommand(const std::string& op3) : Command(), op3(op3){}
-	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
-		unsigned int need = 3;
-		if(tokens.at(0) == "OUT"){ need = 2; }
-		if(tokens.at(0) == "HLT"){ need = 1; }
-		CheckArgumentNum(tokens.size(), need);
+	virtual auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+		unsigned int need = 2;
+		if(tokens.at(0) == "OUT"){ need = 1; }
+		if(tokens.at(0) == "HLT"){ need = 0; }
+		CheckArgumentNum(tokens.size()-1, need);
 	}
-	virtual auto DoConvert(int x, int y, int z) -> std::string {
-		return "11"+ToBitString(y, 3)+ToBitString(x, 3)+op3+"0000";
+	virtual auto DoConvert(
+			const std::string& x, 
+			const std::string& y, 
+			const std::string& z) -> std::string {
+		return "11"+ToBitString(ToValue<int>(y), 3)+ToBitString(ToValue<int>(x), 3)+op3+"0000";
 	}
 
 	std::string op3;
@@ -69,11 +78,14 @@ public:
 	}
 private:
 	ShiftCommand(const std::string& op3) : Command(), op3(op3){}
-	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+	virtual auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
 		CheckArgumentNum(tokens.size()-1, 2);
 	}
-	virtual auto DoConvert(int x, int y, int z) -> std::string {
-		return "11000"+ToBitString(x, 3)+op3+ToBitString(y, 4);
+	virtual auto DoConvert(
+			const std::string& x, 
+			const std::string& y, 
+			const std::string& z) -> std::string {
+		return "11000"+ToBitString(ToValue<int>(x), 3)+op3+ToBitString(ToValue<int>(y), 4);
 	}
 
 	std::string op3;
@@ -86,11 +98,15 @@ public:
 	}
 private:
 	LoadStoreCommand(const std::string& op1) : Command(), op1(op1){}
-	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+	virtual auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
 		CheckArgumentNum(tokens.size()-1, 3);
 	}
-	virtual auto DoConvert(int x, int y, int z) -> std::string {
-		return op1+ToBitString(x, 3)+ToBitString(z, 3)+ToBitString(y, 8);
+	virtual auto DoConvert(
+			const std::string& x, 
+			const std::string& y, 
+			const std::string& z) -> std::string {
+		return op1+ToBitString(ToValue<int>(x), 3)+
+			ToBitString(ToValue<int>(z), 3)+ToBitString(ToValue<int>(y), 8);
 	}
 
 	std::string op1;
@@ -103,11 +119,14 @@ public:
 	}
 private:
 	LoadImAndJumpCommand(const std::string& op2) : Command(), op2(op2){}
-	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+	virtual auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
 		CheckArgumentNum(tokens.size()-1, 2);
 	}
-	virtual auto DoConvert(int x, int y, int z) -> std::string {
-		return "10"+op2+ToBitString(x, 3)+ToBitString(y, 8);
+	virtual auto DoConvert(
+			const std::string& x, 
+			const std::string& y, 
+			const std::string& z) -> std::string {
+		return "10"+op2+ToBitString(ToValue<int>(x), 3)+ToBitString(ToValue<int>(y), 8);
 	}
 
 	std::string op2;
@@ -120,16 +139,39 @@ public:
 	}
 private:
 	BranchCommand(const std::string& cond) : Command(), cond(cond){}
-	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+	virtual auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
 		CheckArgumentNum(tokens.size()-1, 1);
 	}
-	virtual auto DoConvert(int x, int y, int z) -> std::string {
-		return "10111"+cond+ToBitString(y, 8);
+	virtual auto DoConvert(
+			const std::string& x, 
+			const std::string& y, 
+			const std::string& z) -> std::string {
+		return "10111"+cond+ToBitString(ToValue<int>(y), 8);
 	}
 
 	std::string cond;
 };
+/*
+class ExtendedJumpCommand : public Command {
+public:
+	static auto Create(const std::string& op2) -> Command::Ptr {
+		return Command::Ptr(new LoadImAndJumpCommand(op2));
+	}
+private:
+	LoadImAndJumpCommand(const std::string& op2) : Command(), op2(op2){}
+	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+		CheckArgumentNum(tokens.size()-1, 2);
+	}
+	virtual auto DoConvert(
+			const std::string& x, 
+			const std::string& y, 
+			const std::string& z) -> std::string {
+		return "10"+op2+ToBitString(x, 3)+ToBitString(y, 8);
+	}
 
+	std::string op2;
+};
+*/
 class AsmForSIMPLE{
 public:
     AsmForSIMPLE(){
@@ -161,7 +203,9 @@ public:
 
 	auto StartInteractiveShell(std::istream& is, const std::string& save_command) -> void {
 		std::cout << "\"!" << save_command << "\" is save and quit." << std::endl;
+		unsigned int line_num = 0;
 		while(true){
+			++line_num;
 			std::string line;
 			std::getline(is, line);
 			if(line == "!"+save_command){
@@ -175,50 +219,53 @@ public:
 				break;
 			}
 			try{
-				const auto bin_line = this->CompileLine(line);
+				const auto bin_line = this->CompileLine(line_num, line);
 				std::cout << bin_line << std::endl;
 				binary_lines_.push_back(bin_line);
 			}
 			catch(const std::exception& e){
-				std::cout << "ERROR:" << e.what() << std::endl;
+				std::cout << "Error:" << e.what() << std::endl;
 			}
 		}
 	}
 
 
-	auto CompileLine(const std::string& asm_code) -> std::string {
+	auto CompileLine(int line_num, const std::string& asm_code) -> std::string {
 		auto tokens = SplitAndTrimString(asm_code, " ");
 		if(tokens.at(0) == ""){ return ""; }
-		const unsigned int append_token_num = 4 - tokens.size();
+		if(tokens.at(0) == "!LABEL"){ 
+			label_map_[tokens.at(1)] = line_num;
+			return "";
+		}
 		if(command_map_.find(tokens.at(0)) == command_map_.end()){
 			throw InvalidCommandKeywordException(tokens.at(0));	
 		}
 		command_map_[tokens.at(0)]->CheckCommand(tokens);
+		const unsigned int append_token_num = 4 - tokens.size();
 		for(unsigned int i=0; i < append_token_num; ++i){
 			tokens.push_back("0");
 		}
 		return command_map_[tokens.at(0)]->Convert(
-			ToValue<int>(tokens.at(1)), 
-			ToValue<int>(tokens.at(2)), 
-			ToValue<int>(tokens.at(3)));
+			tokens.at(1), tokens.at(2), tokens.at(3));
 	}
 
 	auto CompileAsmFile(std::ifstream& ifs, std::ofstream& ofs) -> void {
-		unsigned int line_count = 0;
+		unsigned int line_num = 0;
 		while(ifs){
-			++line_count;
+			++line_num;
 			std::string line;
 			std::getline(ifs, line);
 			try{
-				ofs << this->CompileLine(line) << std::endl;
+				ofs << this->CompileLine(line_num, line) << std::endl;
 			}
 			catch(const std::exception& e){
-				std::cout << line_count << ":Error:" << e.what() << std::endl;
+				std::cout << line_num << ":Error:" << e.what() << std::endl;
 			}
 		}
 	}
 private:
 	std::map<std::string, Command::Ptr> command_map_;
+	std::map<std::string, int> label_map_;
 	std::vector<std::string> binary_lines_;
 };
 }
