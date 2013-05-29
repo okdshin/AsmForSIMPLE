@@ -146,35 +146,47 @@ private:
 			const std::string& x, 
 			const std::string& y, 
 			const std::string& z) -> std::string {
-		return "10111"+cond+ToBitString(ToValue<int>(y), 8);
+		return "10111"+cond+ToBitString(ToValue<int>(x), 8);
 	}
 
 	std::string cond;
 };
-/*
-class ExtendedJumpCommand : public Command {
+class LabelJumpCommand : public Command {
 public:
-	static auto Create(const std::string& op2) -> Command::Ptr {
-		return Command::Ptr(new LoadImAndJumpCommand(op2));
+	static auto Create(
+			const std::shared_ptr<std::map<std::string, int>>& label_map,
+			const std::shared_ptr<int>& current_line_num) -> Command::Ptr {
+		return Command::Ptr(new LabelJumpCommand(label_map, current_line_num));
 	}
 private:
-	LoadImAndJumpCommand(const std::string& op2) : Command(), op2(op2){}
+	LabelJumpCommand(
+		const std::shared_ptr<std::map<std::string, int>>& label_map,
+		const std::shared_ptr<int>& current_line_num) : 
+			Command(), label_map_(label_map), current_line_num_(current_line_num), 
+			jump_command_(LoadImAndJumpCommand::Create("100")){}
 	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
-		CheckArgumentNum(tokens.size()-1, 2);
+		CheckArgumentNum(tokens.size()-1, 1);
 	}
 	virtual auto DoConvert(
 			const std::string& x, 
 			const std::string& y, 
 			const std::string& z) -> std::string {
-		return "10"+op2+ToBitString(x, 3)+ToBitString(y, 8);
+		if(label_map_->find(x) == label_map_->end()){
+			throw InvalidLabelException(x);	
+		}
+		const auto new_x_str = ToString((*label_map_)[x]-(*current_line_num_));
+		std::cout << new_x_str << std::endl;
+		return jump_command_->Convert("0", new_x_str, "0");
 	}
 
-	std::string op2;
+	std::shared_ptr<std::map<std::string, int>> label_map_;
+	std::shared_ptr<int> current_line_num_;
+	Command::Ptr jump_command_;
 };
-*/
 class AsmForSIMPLE{
 public:
-    AsmForSIMPLE(){
+    AsmForSIMPLE() : 
+			label_map_(new std::map<std::string, int>), current_line_num_(new int(0)){
 		command_map_["ADD"] = OpCommand::Create("0000");
 		command_map_["SUB"] = OpCommand::Create("0001");
 		command_map_["AND"] = OpCommand::Create("0010");
@@ -197,15 +209,16 @@ public:
 		command_map_["BLT"] = BranchCommand::Create("001");
 		command_map_["BLE"] = BranchCommand::Create("010");
 		command_map_["BNE"] = BranchCommand::Create("011");
+
+		command_map_["!B"] = LabelJumpCommand::Create(label_map_, current_line_num_);
 	}
 
     ~AsmForSIMPLE(){}
 
 	auto StartInteractiveShell(std::istream& is, const std::string& save_command) -> void {
 		std::cout << "\"!" << save_command << "\" is save and quit." << std::endl;
-		unsigned int line_num = 0;
 		while(true){
-			++line_num;
+			++(*current_line_num_);
 			std::string line;
 			std::getline(is, line);
 			if(line == "!"+save_command){
@@ -219,7 +232,7 @@ public:
 				break;
 			}
 			try{
-				const auto bin_line = this->CompileLine(line_num, line);
+				const auto bin_line = this->CompileLine((*current_line_num_), line);
 				std::cout << bin_line << std::endl;
 				binary_lines_.push_back(bin_line);
 			}
@@ -234,7 +247,7 @@ public:
 		auto tokens = SplitAndTrimString(asm_code, " ");
 		if(tokens.at(0) == ""){ return ""; }
 		if(tokens.at(0) == "!LABEL"){ 
-			label_map_[tokens.at(1)] = line_num;
+			(*label_map_)[tokens.at(1)] = line_num;
 			return "";
 		}
 		if(command_map_.find(tokens.at(0)) == command_map_.end()){
@@ -250,22 +263,25 @@ public:
 	}
 
 	auto CompileAsmFile(std::ifstream& ifs, std::ofstream& ofs) -> void {
-		unsigned int line_num = 0;
 		while(ifs){
-			++line_num;
+			++(*current_line_num_);
 			std::string line;
 			std::getline(ifs, line);
 			try{
-				ofs << this->CompileLine(line_num, line) << std::endl;
+				const auto bin_code = this->CompileLine(*current_line_num_, line); 
+				if(!bin_code.empty()){
+					ofs << bin_code << std::endl;
+				}
 			}
 			catch(const std::exception& e){
-				std::cout << line_num << ":Error:" << e.what() << std::endl;
+				std::cout << (*current_line_num_) << ":Error:" << e.what() << std::endl;
 			}
 		}
 	}
 private:
 	std::map<std::string, Command::Ptr> command_map_;
-	std::map<std::string, int> label_map_;
+	std::shared_ptr<std::map<std::string, int>> label_map_;
+	std::shared_ptr<int> current_line_num_;
 	std::vector<std::string> binary_lines_;
 };
 }

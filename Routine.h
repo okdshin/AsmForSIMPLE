@@ -60,6 +60,11 @@ auto ToString(T val) -> std::string {
 //TODO minus value
 inline auto ToBitString(int num, unsigned int bit_length) -> std::string {
 	std::string result;
+	bool is_signed = false;
+	if(num < 0){
+		is_signed = true;
+		num = -num;
+	}
 	while(num){
 		result.append(ToString<int>(num%2));
 		num = num/2;
@@ -68,6 +73,17 @@ inline auto ToBitString(int num, unsigned int bit_length) -> std::string {
 	const auto append_length = bit_length - result.length();
 	for(unsigned int i=0; i < append_length; ++i){
 		result.append("0");
+	}
+	if(is_signed){
+		for(unsigned int i=0; i < result.length(); ++i){
+			result.at(i) = (result.at(i) == '1') ? '0' : '1';	
+		}
+		unsigned int i = 0;
+		while(result.at(i) == '1'){
+			result.at(i) = '0';
+			++i;
+		}
+		result.at(i) = '1';
 	}
 	std::reverse(result.begin(), result.end());
 	return result;

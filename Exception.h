@@ -53,5 +53,16 @@ private:
 	std::string invalid_command_;
 };
 
+class InvalidLabelException : public std::exception {
+public:
+	InvalidLabelException(const std::string& label) : 
+		std::exception(), label_(label){}
+	virtual auto what()const throw() -> const char* {
+		return ("invalid label:" + label_).c_str();
+	}
+private:
+	std::string label_;
+};
+
 }
 
