@@ -8,7 +8,10 @@ int main(int argc, char* argv[])
 {
 	AsmForSIMPLE afs;
 	if(argc != 1 && argc != 3){
-		std::cout << "usage:\n\tno argument -> run interactive shell\n\t<src> <dst> -> compile src file and write it dst file." << std::endl;	
+		std::cout << "usage:\n\t"
+			<< "no argument -> run interactive shell\n\t" 
+			<< "<src> <dst> -> compile src file and write it dst file." 
+			<< std::endl;	
 		return 0;
 	}
 	if(argc==1){
