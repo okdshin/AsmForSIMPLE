@@ -40,6 +40,10 @@ inline auto SplitAndTrimString(
 		}
 		start = end + delim.length();
 	}
+	/*
+	dst_vect.erase(std::remove(dst_vect.begin(), dst_vect.end(), ""), 
+		dst_vect.end());
+	*/
 	return dst_vect;
 }
 

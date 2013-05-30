@@ -40,9 +40,11 @@ private:
 };
 
 auto CheckArgumentNum(unsigned int size, unsigned int need) -> void {
+	/*
 	if(size > need){
 		throw TooMutchArgumentsException(size, need);
 	}
+	*/
 	if(size < need){
 		throw TooFewArgumentsException(size, need);	
 	}
@@ -244,14 +246,14 @@ public:
 		command_map_["BLE"] = BranchCommand::Create("010");
 		command_map_["BNE"] = BranchCommand::Create("011");
 
-		command_map_["!B"] = LabelJumpCommand::Create(label_map_, current_line_num_);
-		command_map_["!BE"] = 
+		command_map_["&B"] = LabelJumpCommand::Create(label_map_, current_line_num_);
+		command_map_["&BE"] = 
 			LabelBranchCommand::Create("000", label_map_, current_line_num_);
-		command_map_["!BLT"] = 
+		command_map_["&BLT"] = 
 			LabelBranchCommand::Create("001", label_map_, current_line_num_);
-		command_map_["!BLE"] = 
+		command_map_["&BLE"] = 
 			LabelBranchCommand::Create("010", label_map_, current_line_num_);
-		command_map_["!BNE"] = 
+		command_map_["&BNE"] = 
 			LabelBranchCommand::Create("011", label_map_, current_line_num_);
 	}
 
@@ -286,7 +288,7 @@ public:
 
 	auto CheckLine(int line_num, const std::string& asm_code) -> void {
 		auto tokens = SplitAndTrimString(asm_code, " ");
-		if(tokens.at(0) == "!LABEL"){ 
+		if(tokens.at(0) == "&LABEL"){ 
 			const auto size = label_map_->size();
 			(*label_map_)[tokens.at(1)] = line_num-size-1;
 		}	
@@ -294,7 +296,7 @@ public:
 
 	auto CompileLine(int line_num, const std::string& asm_code) -> std::string {
 		auto tokens = SplitAndTrimString(asm_code, " ");
-		if(tokens.at(0).empty() || tokens.at(0) == "!LABEL"){
+		if(tokens.at(0).empty() || tokens.at(0) == "&LABEL"){
 			return "";	
 		} 
 		if(command_map_.find(tokens.at(0)) == command_map_.end()){
