@@ -175,13 +175,47 @@ private:
 			throw InvalidLabelException(x);	
 		}
 		const auto new_x_str = ToString((*label_map_)[x]-(*current_line_num_));
-		std::cout << new_x_str << std::endl;
+		//std::cout << new_x_str << std::endl;
 		return jump_command_->Convert("0", new_x_str, "0");
 	}
 
 	std::shared_ptr<std::map<std::string, int>> label_map_;
 	std::shared_ptr<int> current_line_num_;
 	Command::Ptr jump_command_;
+};
+class LabelBranchCommand : public Command {
+public:
+	static auto Create(
+			const std::string& cond,
+			const std::shared_ptr<std::map<std::string, int>>& label_map,
+			const std::shared_ptr<int>& current_line_num) -> Command::Ptr {
+		return Command::Ptr(new LabelBranchCommand(cond, label_map, current_line_num));
+	}
+private:
+	LabelBranchCommand(
+		const std::string& cond,
+		const std::shared_ptr<std::map<std::string, int>>& label_map,
+		const std::shared_ptr<int>& current_line_num) : 
+			Command(), label_map_(label_map), current_line_num_(current_line_num), 
+			branch_command_(BranchCommand::Create(cond)){}
+	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+		CheckArgumentNum(tokens.size()-1, 1);
+	}
+	virtual auto DoConvert(
+			const std::string& x, 
+			const std::string& y, 
+			const std::string& z) -> std::string {
+		if(label_map_->find(x) == label_map_->end()){
+			throw InvalidLabelException(x);	
+		}
+		const auto new_x_str = ToString((*label_map_)[x]-(*current_line_num_));
+		//std::cout << new_x_str << std::endl;
+		return branch_command_->Convert(new_x_str, "0", "0");
+	}
+
+	std::shared_ptr<std::map<std::string, int>> label_map_;
+	std::shared_ptr<int> current_line_num_;
+	Command::Ptr branch_command_;
 };
 class AsmForSIMPLE{
 public:
@@ -211,6 +245,14 @@ public:
 		command_map_["BNE"] = BranchCommand::Create("011");
 
 		command_map_["!B"] = LabelJumpCommand::Create(label_map_, current_line_num_);
+		command_map_["!BE"] = 
+			LabelBranchCommand::Create("000", label_map_, current_line_num_);
+		command_map_["!BLT"] = 
+			LabelBranchCommand::Create("001", label_map_, current_line_num_);
+		command_map_["!BLE"] = 
+			LabelBranchCommand::Create("010", label_map_, current_line_num_);
+		command_map_["!BNE"] = 
+			LabelBranchCommand::Create("011", label_map_, current_line_num_);
 	}
 
     ~AsmForSIMPLE(){}
@@ -242,14 +284,19 @@ public:
 		}
 	}
 
+	auto CheckLine(int line_num, const std::string& asm_code) -> void {
+		auto tokens = SplitAndTrimString(asm_code, " ");
+		if(tokens.at(0) == "!LABEL"){ 
+			const auto size = label_map_->size();
+			(*label_map_)[tokens.at(1)] = line_num-size-1;
+		}	
+	}
 
 	auto CompileLine(int line_num, const std::string& asm_code) -> std::string {
 		auto tokens = SplitAndTrimString(asm_code, " ");
-		if(tokens.at(0) == ""){ return ""; }
-		if(tokens.at(0) == "!LABEL"){ 
-			(*label_map_)[tokens.at(1)] = line_num;
-			return "";
-		}
+		if(tokens.at(0).empty() || tokens.at(0) == "!LABEL"){
+			return "";	
+		} 
 		if(command_map_.find(tokens.at(0)) == command_map_.end()){
 			throw InvalidCommandKeywordException(tokens.at(0));	
 		}
@@ -263,13 +310,26 @@ public:
 	}
 
 	auto CompileAsmFile(std::ifstream& ifs, std::ofstream& ofs) -> void {
+		(*current_line_num_) = 0;
+		while(ifs){
+			++(*current_line_num_);
+			std::string line;
+			std::getline(ifs, line);
+			CheckLine((*current_line_num_), line);
+		}
+		ifs.clear();
+		ifs.seekg(0, std::ios_base::beg);
+		(*current_line_num_) = 0;
 		while(ifs){
 			++(*current_line_num_);
 			std::string line;
 			std::getline(ifs, line);
 			try{
 				const auto bin_code = this->CompileLine(*current_line_num_, line); 
-				if(!bin_code.empty()){
+				if(bin_code.empty()){
+					--(*current_line_num_);
+				}
+				else {
 					ofs << bin_code << std::endl;
 				}
 			}
