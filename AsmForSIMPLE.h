@@ -219,6 +219,41 @@ private:
 	std::shared_ptr<int> current_line_num_;
 	Command::Ptr branch_command_;
 };
+class ImmediateLabelBranchCommand : public Command {
+public:
+	static auto Create(
+			const std::string& op2,
+			const std::shared_ptr<std::map<std::string, int>>& label_map,
+			const std::shared_ptr<int>& current_line_num) -> Command::Ptr {
+		return Command::Ptr(new ImmediateLabelBranchCommand(op2, label_map, current_line_num));
+	}
+private:
+	ImmediateLabelBranchCommand(
+		const std::string& op2_,
+		const std::shared_ptr<std::map<std::string, int>>& label_map,
+		const std::shared_ptr<int>& current_line_num) : 
+			Command(), label_map_(label_map), current_line_num_(current_line_num), 
+			op2_(op2_){}
+	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+		CheckArgumentNum(tokens.size()-1, 3);
+	}
+	virtual auto DoConvert(
+			const std::string& x, 
+			const std::string& y, 
+			const std::string& z) -> std::string {
+		if(label_map_->find(z) == label_map_->end()){
+			throw InvalidLabelException(z);	
+		}
+		const auto new_z = (*label_map_)[z]-(*current_line_num_);
+		//std::cout << new_x_str << std::endl;
+		return "10"+ToBitString(ToValue<int>(y), 3)
+			+ToBitString(ToValue<int>(x), 3)+ToBitString(new_z, 5);
+	}
+
+	std::shared_ptr<std::map<std::string, int>> label_map_;
+	std::shared_ptr<int> current_line_num_;
+	std::string op2_;
+};
 class AsmForSIMPLE{
 public:
     AsmForSIMPLE() : 
@@ -255,6 +290,15 @@ public:
 			LabelBranchCommand::Create("010", label_map_, current_line_num_);
 		command_map_["&BNE"] = 
 			LabelBranchCommand::Create("011", label_map_, current_line_num_);
+		
+		command_map_["&BEI"] = 
+			ImmediateLabelBranchCommand::Create("010", label_map_, current_line_num_);
+		command_map_["&BLT"] = 
+			ImmediateLabelBranchCommand::Create("011", label_map_, current_line_num_);
+		command_map_["&BLE"] = 
+			ImmediateLabelBranchCommand::Create("101", label_map_, current_line_num_);
+		command_map_["&BNE"] = 
+			ImmediateLabelBranchCommand::Create("110", label_map_, current_line_num_);
 	}
 
     ~AsmForSIMPLE(){}
@@ -332,7 +376,7 @@ public:
 					--(*current_line_num_);
 				}
 				else {
-					ofs << bin_code << std::endl;
+					ofs << (*current_line_num_)-1 << ":" << bin_code << ";" << std::endl;
 				}
 			}
 			catch(const std::exception& e){
