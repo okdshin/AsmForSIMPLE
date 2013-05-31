@@ -311,11 +311,11 @@ public:
 		
 		command_map_["&BEI"] = 
 			ImmediateLabelBranchCommand::Create("010", label_map_, current_line_num_);
-		command_map_["&BLT"] = 
+		command_map_["&BLTI"] = 
 			ImmediateLabelBranchCommand::Create("011", label_map_, current_line_num_);
-		command_map_["&BLE"] = 
+		command_map_["&BLEI"] = 
 			ImmediateLabelBranchCommand::Create("101", label_map_, current_line_num_);
-		command_map_["&BNE"] = 
+		command_map_["&BNEI"] = 
 			ImmediateLabelBranchCommand::Create("110", label_map_, current_line_num_);
 		command_map_["ADDI"] = 
 			ImmediateAddCommand::Create();
