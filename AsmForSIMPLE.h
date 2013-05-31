@@ -254,6 +254,24 @@ private:
 	std::shared_ptr<int> current_line_num_;
 	std::string op2_;
 };
+class ImmediateAddCommand : public Command {
+public:
+	static auto Create() -> Command::Ptr {
+		return Command::Ptr(new ImmediateAddCommand());
+	}
+private:
+	ImmediateAddCommand() : Command(){}
+	auto DoCheckCommand(const std::vector<std::string>& tokens) -> void {
+		CheckArgumentNum(tokens.size()-1, 2);
+	}
+	virtual auto DoConvert(
+			const std::string& x, 
+			const std::string& y, 
+			const std::string& z) -> std::string {
+		return "10001"+ToBitString(ToValue<int>(x), 3)+
+			ToBitString(ToValue<int>(y), 8);
+	}
+};
 class AsmForSIMPLE{
 public:
     AsmForSIMPLE() : 
@@ -299,6 +317,8 @@ public:
 			ImmediateLabelBranchCommand::Create("101", label_map_, current_line_num_);
 		command_map_["&BNE"] = 
 			ImmediateLabelBranchCommand::Create("110", label_map_, current_line_num_);
+		command_map_["ADDI"] = 
+			ImmediateAddCommand::Create();
 	}
 
     ~AsmForSIMPLE(){}
